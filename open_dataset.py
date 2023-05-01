@@ -92,55 +92,63 @@ def forward_prop(weights, biases, images):
 
     return (weights, zs, activations)
 
-def backward_prop(pred, images, labels):
-    activations = pred[2, :, ::-1, :]
-    zs = pred[1, :, ::-1, :]
-    weigths = pred[0, :, ::-1, :]
+def backward_prop(weights, zs, activations, images, labels):
     objectives = nums2vects(labels)
-    cost = (activations[0, :] - objectives)**2
-    dA0 = 2*(activations[0, :] - objectives)
-    dA1 = dA0*relu_prime(zs[0, :])*weights[0]
+    dA0 = 2*(activations[-1, :] - objectives)
+    dA1 = dA0*relu_prime(zs[-1, :])*weights[-1]
 
-    for i in range(len(weigths)):
-        dw1 = dA1*relu_prime(zs[1, :])*activations[0, :]
-        db1 = dA1*relu_prime(zs[1, :])
-        dA2 = dA1*relu_prime(zs[1, :])*weights[1]
+    dws = np.zeros(len(weights))
+    dbs = np.zeros(len(weights))
+    dAs = np.zeros(len(activations))
+    dAs[0] = dA0
+    dAs[1] = dA1
 
-        dw2 = dA2*relu_prime(zs[2, :])*activations[1, :]
-        db2 = dA2*relu_prime(zs[2, :])
-        dA3 = dA2*relu_prime(zs[2, :])*weights[2]
-
-
-
-
-    
-    activations = np.zeros(len(weights))
-    zs = np.zeros(len(weights))
-    z = np.dot(weights[0], images) + biases[0]
-    activation = relu(z)
-
-    activations[0] = activation
-    zs[0] = z
-
-    for i, v in enumerate(weights):
-        if i == 0:
+    for i in range(len(weights)):
+        if (i == 0) or (i == 1):
             continue
         elif i == len(weights):
             continue
         else:
-            z = np.dot(v, activation) + biases[i]
-            activation = relu(z)
+            dw1 = dA1*relu_prime(zs[-i, :])*activations[-i+1, :]
+            db1 = dA1*relu_prime(zs[-i, :])
+            dA1 = dA1*relu_prime(zs[-i, :])*weights[-i]
+            dAs[-i] = dA1
+            dws[-i] = dw1
+            dbs[-i] = db1
 
-            activations[i] = activation
-            zs[i] = z
-    
-    z = np.dot(weights[-1], activation) + biases[-1]
-    activation = softmax(z)
+    dw1 = dA1*relu_prime(images)*activations[1, :]
+    db1 = dA1*relu_prime(images)
+    dA1 = dA1*relu_prime(images)*weights[0]
+    dAs[0] = dA1
+    dws[0] = dw1
+    dbs[0] = db1
 
-    activations[-1] = activation
-    zs[-1] = z
+    return (dws, dbs)
 
-    return (zs, activations)
+def update_NN(weights, biases, dws, dbs, learning_rate):
+    weights = weights - learning_rate * dws
+    biases = biases - learning_rate * dbs
+    return (weights, biases)
+
+def gradient_descend(images, labels, learning_rate, iters):
+    layers = 2
+    neurons = np.array([784, 10, 10])
+    weights, biases = create_NN(layers, neurons)
+
+    for i in range(iters):
+        weights, zs, activations = forward_prop(weights, biases, images)
+        dws, dbs = backward_prop(weights, zs, activations, images, labels)
+        weights, biases = update_NN(weights, biases, dws, dbs, learning_rate)
+        if i % 50 == 0:
+            print("[INFO] iteration number: ", i)
+            print("[INFO] Accuracy: ", get_accuracy(get_predictions(activations[-1]), labels))
+    return (weights, biases)
+
+def get_predictions(pred):
+    return np.argmax(pred, 0)
+
+def get_accuracy(pred, labels):
+    return np.sum(pred == labels) / labels.size
 
 
 if __name__ == '__main__':
@@ -156,8 +164,6 @@ if __name__ == '__main__':
 
     print('Time elapsed reading images:\t{0} ms\nTime elapsed reading labels:\t{1} ms\n'.format(img_time, lbl_time))
 
-    show_rand_image(images, labels)
+    # show_rand_image(images, labels)
 
-    layers = 2
-    neurons = np.array([784, 10, 10])
-    weights, biases = create_NN(layers, neurons)
+    weights, biases = gradient_descend(images, labels, 0.05, 100)
