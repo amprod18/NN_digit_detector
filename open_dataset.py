@@ -42,13 +42,13 @@ def show_rand_image(images, labels):
     show_image(images[data_point], labels[data_point])
 
 def create_NN(layers, neurons):
-    weights = np.zeros(layers)
-    biases = np.zeros(layers)
+    weights = []
+    biases = []
 
     if len(neurons) == layers + 1:
         for i in range(layers):
-            weights[i] = np.random.randn(neurons[i + 1], neurons[i])
-            biases[i] = np.random.randn(neurons[i + 1], 1)
+            weights.append(np.random.randn(neurons[i + 1], neurons[i]))
+            biases.append(np.random.randn(neurons[i + 1], 1))
     else:
         print("[ERROR] Number of layers and neurons numbers do not match.")
 
@@ -64,31 +64,33 @@ def softmax(array):
     return (np.exp(array) / np.exp(array).sum())
 
 def forward_prop(weights, biases, images):
-    activations = np.zeros(len(weights))
-    zs = np.zeros(len(weights))
+    activations = []
+    zs = []
     z = np.dot(weights[0], images) + biases[0]
     activation = relu(z)
 
-    activations[0] = activation
-    zs[0] = z
+    activations.append(activation)
+    zs.append(z)
 
     for i, v in enumerate(weights):
         if i == 0:
             continue
-        elif i == len(weights):
+        elif i == len(weights) - 1:
             continue
         else:
+            print(i, v.shape)
             z = np.dot(v, activation) + biases[i]
             activation = relu(z)
 
-            activations[i] = activation
-            zs[i] = z
+            activations.append(activation)
+            zs.append(z)
     
     z = np.dot(weights[-1], activation) + biases[-1]
     activation = softmax(z)
 
-    activations[-1] = activation
-    zs[-1] = z
+    activations.append(activation)
+    zs.append(z)
+    print(biases)
 
     return (weights, zs, activations)
 
@@ -97,31 +99,31 @@ def backward_prop(weights, zs, activations, images, labels):
     dA0 = 2*(activations[-1, :] - objectives)
     dA1 = dA0*relu_prime(zs[-1, :])*weights[-1]
 
-    dws = np.zeros(len(weights))
-    dbs = np.zeros(len(weights))
-    dAs = np.zeros(len(activations))
-    dAs[0] = dA0
-    dAs[1] = dA1
+    dws = []
+    dbs = []
+    dAs = []
+    dAs.append(dA0)
+    dAs.append(dA1)
 
     for i in range(len(weights)):
         if (i == 0) or (i == 1):
             continue
-        elif i == len(weights):
+        elif i == len(weights) - 1:
             continue
         else:
             dw1 = dA1*relu_prime(zs[-i, :])*activations[-i+1, :]
             db1 = dA1*relu_prime(zs[-i, :])
             dA1 = dA1*relu_prime(zs[-i, :])*weights[-i]
-            dAs[-i] = dA1
-            dws[-i] = dw1
-            dbs[-i] = db1
+            dAs.insert(0, dA1)
+            dws.insert(0, dw1)
+            dbs.insert(0, db1)
 
     dw1 = dA1*relu_prime(images)*activations[1, :]
     db1 = dA1*relu_prime(images)
     dA1 = dA1*relu_prime(images)*weights[0]
-    dAs[0] = dA1
-    dws[0] = dw1
-    dbs[0] = db1
+    dAs.insert(0, dA1)
+    dws.insert(0, dw1)
+    dbs.insert(0, db1)
 
     return (dws, dbs)
 
@@ -136,8 +138,8 @@ def gradient_descend(images, labels, learning_rate, iters):
     weights, biases = create_NN(layers, neurons)
 
     for i in range(iters):
-        weights, zs, activations = forward_prop(weights, biases, images)
-        dws, dbs = backward_prop(weights, zs, activations, images, labels)
+        weights, zs, activations = forward_prop(weights, biases, images[:, i])
+        dws, dbs = backward_prop(weights, zs, activations, images[:, i], labels)
         weights, biases = update_NN(weights, biases, dws, dbs, learning_rate)
         if i % 50 == 0:
             print("[INFO] iteration number: ", i)
@@ -161,9 +163,10 @@ if __name__ == '__main__':
     # Documentation on how to read the data here: http://yann.lecun.com/exdb/mnist/
     images = np.frombuffer(images, dtype=np.uint8, offset=16).reshape(-1, 28, 28)
     labels = np.frombuffer(labels, dtype=np.uint8, offset=8).reshape(-1)
+    data_images = images.reshape(60000, 784).T
 
     print('Time elapsed reading images:\t{0} ms\nTime elapsed reading labels:\t{1} ms\n'.format(img_time, lbl_time))
 
-    # show_rand_image(images, labels)
+    show_rand_image(images, labels)
 
-    weights, biases = gradient_descend(images, labels, 0.05, 100)
+    weights, biases = gradient_descend(data_images, labels, 0.05, 100)
