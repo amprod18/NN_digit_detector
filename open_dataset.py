@@ -94,36 +94,43 @@ def forward_prop(weights, biases, images):
     return (weights, zs, activations)
 
 def backward_prop(weights, zs, activations, images, objective):
-    # print("-----WEIGHTS-----\n", weights)
-    # print("-----ACTIVATIONS-----\n", activations)
-    
-    dA0 = 2*(activations[-1] - objective)
-    dA1 = np.dot(np.dot(dA0, relu_prime(zs[-1])), weights[-1])
-
     dws = []
     dbs = []
     dAs = []
-    dAs.append(dA0)
-    dAs.append(dA1)
 
+    dA0 = 2*(activations[-1] - objective)
+    dAs.append(dA0)
+
+    print(relu_prime(zs[-1]).shape)
+    db1 = np.dot(dA0, relu_prime(zs[-1]))
+    dA1 = np.sum(np.dot(db1, weights[-1]), 1)
+    dw1 = np.dot(db1, activations[-2])
+    dAs.append(dA1)
+    dbs.append(db1)
+    dws.append(dw1)
+    
     for i in range(len(weights) + 1):
         if (i == 0) or (i == 1):
             continue
+        elif i == len(weights):
+            continue
         else:
             db1 = np.dot(dA1, relu_prime(zs[-i]))
-            dw1 = np.dot(db1, activations[-i+1])
-            dA1 = np.dot(db1, weights[-i])
+            dw1 = np.dot(db1, activations[-i-1])
+            dA1 = np.sum(np.dot(db1, weights[-i]), 1)
             dAs.insert(0, dA1)
             dws.insert(0, dw1)
             dbs.insert(0, db1)
 
-    db1 = np.dot(dA1, relu_prime(images))
-    dw1 = np.dot(db1, activations[1])
-    dA1 = np.dot(db1, weights[0])
+    db1 = np.dot(dA1, relu_prime(zs[0]))
+    print(db1)
+    dw1 = np.dot(db1, images)
+    dA1 = np.sum(np.dot(db1, weights[0]), 1)
     dAs.insert(0, dA1)
     dws.insert(0, dw1)
     dbs.insert(0, db1)
-
+    for i in activations:
+        print(i.shape)
     return (dws, dbs)
 
 def update_NN(weights, biases, dws, dbs, learning_rate):
@@ -145,20 +152,13 @@ def gradient_descend(images, labels, learning_rate, iters):
         weights, zs, activations = forward_prop(weights, biases, images[:, i])
         dws, dbs = backward_prop(weights, zs, activations, images[:, i], objectives[:, i])
         weights, biases = update_NN(weights, biases, dws, dbs, learning_rate)
-        counter += get_predictions(activations[-1]) == labels[i]
+        counter += np.argmax(activations[-1], 0) == labels[i]
         if (i % 50 == 0) and (i != 0):
             print("[INFO] iteration number: ", i)
-            print("[INFO] Accuracy: ", 100*counter / i, "%")
+            print("[INFO] Accuracy: ", round(100*counter / i, 2), "%")
     print("[INFO] iteration number: ", iters)
-    print("[INFO] Accuracy: ", 100*counter / iters, "%")
+    print("[INFO] Accuracy: ", round(100*counter / iters, 2), "%")
     return (weights, biases)
-
-def get_predictions(pred):
-    return np.argmax(pred, 0)
-
-def get_accuracy(pred, labels):
-    return np.sum(pred == labels) / labels.size
-
 
 if __name__ == '__main__':
     path2images = "training_set/train-images-idx3-ubyte.gz"
@@ -172,7 +172,7 @@ if __name__ == '__main__':
     labels = np.frombuffer(labels, dtype=np.uint8, offset=8).reshape(-1)
     data_images = images.reshape(60000, 784).T / 255
 
-    print('Time elapsed reading images:\t{0} ms\nTime elapsed reading labels:\t{1} ms\n'.format(img_time, lbl_time))
+    print('[INFO] Time elapsed reading images:\t{0} ms\n[INFO] Time elapsed reading labels:\t{1} ms\n'.format(img_time, lbl_time))
 
     # show_rand_image(images, labels)
 
