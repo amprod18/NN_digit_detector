@@ -130,8 +130,8 @@ def update_NN(weights, biases, dws, dbs, learning_rate):
     u_weights = []
     u_biases = []
     for i,v in enumerate(weights):
-        u_weights.append(v - learning_rate * dws[i])
-        u_biases.append(biases[i] - learning_rate * dbs[i])
+        u_weights.append(v - learning_rate * dws[-i - 1])
+        u_biases.append(biases[i] - learning_rate * dbs[-i - 1])
     return (u_weights, u_biases)
 
 def gradient_descend(images, labels, learning_rate, iters):
@@ -139,14 +139,18 @@ def gradient_descend(images, labels, learning_rate, iters):
     neurons = np.array([784, 10, 10, 10])
     weights, biases = create_NN(layers, neurons)
     objectives = nums2vects(labels)
+    counter = 0
 
     for i in range(iters):
         weights, zs, activations = forward_prop(weights, biases, images[:, i])
         dws, dbs = backward_prop(weights, zs, activations, images[:, i], objectives[:, i])
         weights, biases = update_NN(weights, biases, dws, dbs, learning_rate)
-        if i % 50 == 0:
+        counter += get_predictions(activations[-1]) == labels[i]
+        if (i % 50 == 0) and (i != 0):
             print("[INFO] iteration number: ", i)
-            print("[INFO] Accuracy: ", get_accuracy(get_predictions(activations[-1]), labels))
+            print("[INFO] Accuracy: ", 100*counter / i, "%")
+    print("[INFO] iteration number: ", iters)
+    print("[INFO] Accuracy: ", 100*counter / iters, "%")
     return (weights, biases)
 
 def get_predictions(pred):
@@ -172,4 +176,4 @@ if __name__ == '__main__':
 
     # show_rand_image(images, labels)
 
-    weights, biases = gradient_descend(data_images, labels, 0.05, 100)
+    weights, biases = gradient_descend(data_images, labels, 0.05, 1000)
