@@ -130,8 +130,8 @@ def update_NN(weights, biases, dws, dbs, learning_rate):
     u_weights = []
     u_biases = []
     for i,v in enumerate(weights):
-        u_weights.append(v - learning_rate * dws[-i - 1])
-        u_biases.append(biases[i] - learning_rate * dbs[-i - 1])
+        u_weights.append(v - learning_rate * dws[- i - 1])
+        u_biases.append(biases[i] - learning_rate * dbs[- i - 1])
     return (u_weights, u_biases)
 
 def gradient_descend(images, labels, learning_rate, iters):
