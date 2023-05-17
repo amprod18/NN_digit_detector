@@ -66,7 +66,7 @@ def softmax(array):
 def forward_prop(weights, biases, images):
     activations = []
     zs = []
-    z = np.dot(weights[0], images) + biases[0]
+    z = np.dot(weights[0], images.reshape(-1, 1)) + biases[0].reshape(-1, 1)
     activation = relu(z)
 
     activations.append(activation)
@@ -78,18 +78,17 @@ def forward_prop(weights, biases, images):
         elif i == len(weights) - 1:
             continue
         else:
-            z = np.dot(v, activation) + biases[i]
+            z = np.dot(v, activation) + biases[i].reshape(-1, 1)
             activation = relu(z)
 
             activations.append(activation)
             zs.append(z)
     
-    z = np.dot(weights[-1], activation) + biases[-1]
+    z = np.dot(weights[-1], activation) + biases[-1].reshape(-1, 1)
     activation = softmax(z)
 
     activations.append(activation)
     zs.append(z)
-    # print("-----BIASES-----\n", biases)
 
     return (weights, zs, activations)
 
@@ -98,13 +97,13 @@ def backward_prop(weights, zs, activations, images, objective):
     dbs = []
     dAs = []
 
-    dA0 = 2*(activations[-1] - objective)
+    dA0 = 2*(activations[-1] - objective.reshape(-1, 1))
     dAs.append(dA0)
 
-    print(relu_prime(zs[-1]).shape)
-    db1 = np.dot(dA0, relu_prime(zs[-1]))
-    dA1 = np.sum(np.dot(db1, weights[-1]), 1)
-    dw1 = np.dot(db1, activations[-2])
+    db1 = dA0 * relu_prime(zs[-1]).reshape(-1, 1)
+    dA1 = np.dot(weights[-1].T, db1.reshape(-1, 1))
+    dw1 = np.dot(db1.reshape(-1, 1), activations[-2].reshape(-1, 1).T)
+    
     dAs.append(dA1)
     dbs.append(db1)
     dws.append(dw1)
@@ -115,30 +114,29 @@ def backward_prop(weights, zs, activations, images, objective):
         elif i == len(weights):
             continue
         else:
-            db1 = np.dot(dA1, relu_prime(zs[-i]))
-            dw1 = np.dot(db1, activations[-i-1])
-            dA1 = np.sum(np.dot(db1, weights[-i]), 1)
+            db1 = dA1 * relu_prime(zs[-i]).reshape(-1, 1)
+            dw1 = np.dot(db1.reshape(-1, 1), activations[-i-1].reshape(-1, 1).T)
+            dA1 = np.dot(weights[-i].T, db1.reshape(-1, 1))
             dAs.insert(0, dA1)
             dws.insert(0, dw1)
             dbs.insert(0, db1)
 
-    db1 = np.dot(dA1, relu_prime(zs[0]))
-    print(db1)
-    dw1 = np.dot(db1, images)
-    dA1 = np.sum(np.dot(db1, weights[0]), 1)
+    db1 = dA1 * relu_prime(zs[0]).reshape(-1, 1)
+    dw1 = np.dot(db1.reshape(-1, 1), images.reshape(-1, 1).T)
+    dA1 = np.dot(weights[0].T, db1.reshape(-1, 1))
     dAs.insert(0, dA1)
     dws.insert(0, dw1)
     dbs.insert(0, db1)
-    for i in activations:
-        print(i.shape)
+
     return (dws, dbs)
 
 def update_NN(weights, biases, dws, dbs, learning_rate):
     u_weights = []
     u_biases = []
     for i,v in enumerate(weights):
-        u_weights.append(v - learning_rate * dws[- i - 1])
-        u_biases.append(biases[i] - learning_rate * dbs[- i - 1])
+        u_weights.append(v - learning_rate * dws[i])
+        u_biases.append(biases[i].reshape(-1, 1) - learning_rate * dbs[i])
+    
     return (u_weights, u_biases)
 
 def gradient_descend(images, labels, learning_rate, iters):
@@ -152,7 +150,7 @@ def gradient_descend(images, labels, learning_rate, iters):
         weights, zs, activations = forward_prop(weights, biases, images[:, i])
         dws, dbs = backward_prop(weights, zs, activations, images[:, i], objectives[:, i])
         weights, biases = update_NN(weights, biases, dws, dbs, learning_rate)
-        counter += np.argmax(activations[-1], 0) == labels[i]
+        counter += (np.argmax(activations[-1], 0) == labels[i])[0]
         if (i % 50 == 0) and (i != 0):
             print("[INFO] iteration number: ", i)
             print("[INFO] Accuracy: ", round(100*counter / i, 2), "%")
