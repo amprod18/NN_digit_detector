@@ -229,9 +229,7 @@ if __name__ == '__main__':
     learning_rate = 0.05
     N_network = neural_network([10, 10], learning_rate)
     N_network.train_mode(train_images, train_labels)
-    N_network.predict_mode(test_images[:, 0])
-
-    # pred, fp_time = N_network.predict_mode()
+    N_network.predict_mode(test_images[:, np.random.randint(0, 1e4)])
     
 
 
