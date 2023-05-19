@@ -4,239 +4,237 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from time import *
+import os
 
 
-class neuron():
-    def __init__(self, layer, pos):
-        self.weight = np.random.random(0, 1)
-        self.bias = np.random.random(0, 1)
-        self.layer = layer
-        self.pos = pos
+class neural_network():
+    def __init__(self, layers_size, learning_rate):
+        layers_size.insert(0, 784)
+        layers_size.insert(-1, 10)
+        self.layers_size = layers_size
+        self.learning_rate = learning_rate
+        self.accuracy = 0
+        self.weights = []
+        self.biases = []
+        self.zs = []
+        self.activations = []
 
-    def update(self, weight=None, bias=None):
-        if weight is not None:
-            self.weight = weight
-        if bias is not None:
-            self.bias = bias
+        for i in range(len(self.layers_size) - 1):
+            self.weights.append(np.random.randn(self.layers_size[i + 1], self.layers_size[i]))
+            self.biases.append(np.random.randn(self.layers_size[i + 1]).T)
+            self.zs.append(np.zeros(self.layers_size[i]).T)
+            self.activations.append(np.zeros(self.layers_size[i]).T)
+        
+        self.dws = self.weights.copy()
+        self.dbs = self.biases.copy()
+        self.dAs = self.activations.copy()
+        
+    def forward_prop(self, image):
+        cp1 = time()
+        z = np.dot(self.weights[0], image.reshape(-1, 1)) + self.biases[0].reshape(-1, 1)
+        activation = self.sigmoid(z)
+        self.activations[0] = activation
+        self.zs[0] = z
 
-def read_data(path):
+        for i, v in enumerate(self.weights):
+            if i == 0:
+                continue
+            elif i == len(self.weights) - 1:
+                continue
+            else:
+                z = np.dot(v, activation) + self.biases[i].reshape(-1, 1)
+                activation = self.sigmoid(z)
+
+                self.activations[i] = activation
+                self.zs[i] = z
+        
+        z = np.dot(self.weights[-1], activation) + self.biases[-1].reshape(-1, 1)
+        activation = self.softmax(z)
+
+        self.activations[-1] = activation
+        self.zs[-1] = z
+        cp2 = time()
+
+        return (1000 * (cp2 - cp1))
+    
+    def backward_prop(self, image, objective):
+        cp1 = time()
+
+        dA0 = 2*(self.activations[-1] - objective.reshape(-1, 1))
+        self.dAs[-1] = dA0
+
+        db1 = dA0 * self.sigmoid_prime(self.zs[-1]).reshape(-1, 1)
+        dA1 = np.dot(self.weights[-1].T, db1.reshape(-1, 1))
+        dw1 = np.dot(db1.reshape(-1, 1), self.activations[-2].reshape(-1, 1).T)
+        
+        self.dAs[-2] = dA1
+        self.dbs[-1] = db1
+        self.dws[-1] = dw1
+        
+        for i in range(len(self.weights) + 1):
+            if (i == 0) or (i == 1):
+                continue
+            elif i == len(self.weights):
+                continue
+            else:
+                db1 = dA1 * self.sigmoid_prime(self.zs[-i]).reshape(-1, 1)
+                dw1 = np.dot(db1.reshape(-1, 1), self.activations[-i-1].reshape(-1, 1).T)
+                dA1 = np.dot(self.weights[-i].T, db1.reshape(-1, 1))
+                self.dAs[-i-1] = dA1
+                self.dws[-i] = dw1
+                self.dbs[-i] = db1
+
+        db1 = dA1 * self.sigmoid_prime(self.zs[0]).reshape(-1, 1)
+        dw1 = np.dot(db1.reshape(-1, 1), image.reshape(-1, 1).T)
+        dA1 = np.dot(self.weights[0].T, db1.reshape(-1, 1))
+        self.dAs[0] = dA1
+        self.dws[0] = dw1
+        self.dbs[0] = db1
+        cp2 = time()
+
+        return (1000 * (cp2 - cp1))
+    
+    def update_NN(self):
+        cp1 = time()
+        for i,v in enumerate(self.weights):
+            self.weights[i] = v - self.learning_rate * self.dws[i]
+            self.biases[i] = self.biases[i].reshape(-1, 1) - self.learning_rate * self.dbs[i]
+        cp2 = time()
+        
+        return (1000 * (cp2 - cp1))
+    
+    def gradient_descend(self, images, labels):
+        cp1 = time()
+        objectives = self.nums2vects(labels)
+        counter = 0
+        accuracy = np.array([])
+        iters = len(images[0])
+        times = np.zeros((3, iters))
+
+        for i in range(len(images[0])):
+            fp_time = self.forward_prop(images[:, i])
+            bp_time = self.backward_prop(images[:, i], objectives[:, i])
+            unn_time = self.update_NN()
+            counter += (np.uint8(np.argmax(self.activations[-1], 0)[0]) == labels[i])
+            # print(np.uint8(np.argmax(self.activations[-1], 0)[0]), labels[i], counter)
+            times[:, i] = np.array([fp_time, bp_time, unn_time])
+            if i == 0:
+                continue
+            accuracy = np.append(accuracy, 100*counter / i)
+            if i % 10000 == 0:
+                print("[INFO] iteration number: ", i)
+                print("[INFO] Accuracy: ", round(100*counter / i, 2), "%")
+        print("[INFO] iteration number: ", iters)
+        print("[INFO] Accuracy: ", round(100*counter / iters, 2), "%")
+        accuracy = np.append(accuracy, 100*counter / iters)
+        times = np.array([i.sum()/iters for i in times])
+        times = np.append(times, times.sum())
+        
+        cp2 = time()
+        mean_times = np.append(times, np.array([1000 * (cp2 - cp1)]))
+        return (accuracy, mean_times)
+    
+    def sigmoid(self, values):
+        return 1/(1+np.exp(-values))
+
+    def sigmoid_prime(self, values):
+        return (self.sigmoid(values)*(1-self.sigmoid(values)))
+
+    def softmax(self, array):
+        return (np.exp(array) / np.sum(np.exp(array)))
+    
+    def nums2vects(self, labels):
+        cols = np.zeros((labels.size, labels.max() + 1))
+        cols[np.arange(labels.size), labels] = 1
+        return cols.T
+    
+    def show_image(self, image, title, fignum):
+        fig, ax = plt.subplots(num=fignum)
+        ax.axis("off")
+        ax.set_title(title)
+        ax.imshow(image, cmap='gray')
+        plt.show()
+    
+    def plot_training_data(self, accuracy, time_data):
+        # Create figure and grid layout
+        fig = plt.figure(num=0)
+        gs = GridSpec(1, 2, width_ratios=[2, 1])  # Divide the figure into 1 row, 2 columns
+
+        # Create the left subplot for the table
+        ax_table = fig.add_subplot(gs[0, 0])
+        table = ax_table.table(cellText=time_data, loc='center', cellLoc='center')
+        table.auto_set_font_size(False)
+        table.set_fontsize(14)
+        table.scale(1.2, 1.2)
+        ax_table.axis('off')
+
+        # Create the right subplot for the graphic
+        ax_graphic = fig.add_subplot(gs[0, 1])
+        ax_graphic.set_title("Number of Iterations: " + str(len(accuracy)))
+        ax_graphic.set_xlabel("Number of Iteration")
+        ax_graphic.set_ylabel("Accuracy Achieved")
+        ax_graphic.plot(range(1, len(accuracy) + 1), accuracy)
+
+        # Adjust spacing between subplots
+        fig.tight_layout()
+        plt.show()
+    
+    def train_mode(self, images, labels):
+        print("[INFO] Starting training...")
+        accuracy, mean_times = self.gradient_descend(images, labels)
+        self.accuracy = accuracy[-1]
+        table_headers = np.array([[""], ["Mean Time per Iteration (ms)"], ["Iterations per Second"]])
+        time_names = np.array(["Forward Propagation", "Backward Propagation", "Update Neural Network", "Total Iteration", "Total Training"])
+        time_data = np.column_stack((table_headers, np.array([time_names, mean_times, 1000/mean_times]))).T
+        self.plot_training_data(accuracy, time_data)
+
+    def predict_mode(self, image):
+        fp_time = self.forward_prop(image)
+        pred = np.argmax(self.activations[-1], 0)
+        self.show_image(image.reshape(28, 28), "Predicted number: " + str(pred[0]), 1)
+        return (pred, fp_time)
+
+def read_data(filename_images, filename_labels):
     cp1 = time()
-    with gzip.open(path, 'rb') as f:
-            data = f.read()
+    with gzip.open(cwd + filename_images, 'rb') as f:
+            images = f.read()
     cp2 = time()
-    return (data, str((cp2-cp1)*1000))
+    images_time = str((cp2-cp1)*1000)
 
-def nums2vects(labels):
-    cols = np.zeros((labels.size, labels.max() + 1))
-    cols[np.arange(labels.size), labels] = 1
-    return cols.T
-
-def show_image(image, label):
-    fig, ax = plt.subplots(num=0)
-    ax.axis("off")
-    ax.set_title(label)
-    ax.imshow(image, cmap='gray')
-    plt.show()
-
-def show_rand_image(images, labels):
-    data_point = np.random.randint(0, 6e4)
-    show_image(images[data_point], labels[data_point])
-
-def plot_accuracy(accuracy, iters):
-    fig, ax = plt.subplots(num=0)
-    ax.set_title("Number of Iterations: " + str(iters))
-    ax.set_xlabel("Number of Iteration")
-    ax.set_ylabel("Accuracy Achieved")
-    ax.plot(range(1, iters + 1), accuracy)
-    plt.show()
-
-def create_NN(layers, neurons):
-    weights = []
-    biases = []
-    
-    if len(neurons) == layers + 2:
-        for i in range(layers + 1):
-            weights.append(np.random.randn(neurons[i + 1], neurons[i]))
-            biases.append(np.random.randn(neurons[i + 1]).T)
-    else:
-        print("[ERROR] Number of layers and neurons numbers do not match.")
-
-    return (weights, biases)
-
-def relu(values):
-    return np.maximum(0, values)
-
-def relu_prime(values):
-    return values > 0
-
-def sigmoid(values):
-    return 1/(1+np.exp(-values))
-
-def sigmoid_prime(values):
-    return (sigmoid(values)*(1-sigmoid(values)))
-
-def softmax(array):
-    ar = np.exp(array) / np.sum(np.exp(array))
-    # print(ar, np.sum(ar))
-    return (np.exp(array) / np.sum(np.exp(array)))
-
-def forward_prop(weights, biases, images):
     cp1 = time()
-    activations = []
-    zs = []
-    z = np.dot(weights[0], images.reshape(-1, 1)) + biases[0].reshape(-1, 1)
-    activation = sigmoid(z)
-    activations.append(activation)
-    zs.append(z)
-
-    for i, v in enumerate(weights):
-        if i == 0:
-            continue
-        elif i == len(weights) - 1:
-            continue
-        else:
-            z = np.dot(v, activation) + biases[i].reshape(-1, 1)
-            activation = sigmoid(z)
-
-            activations.append(activation)
-            zs.append(z)
-    
-    z = np.dot(weights[-1], activation) + biases[-1].reshape(-1, 1)
-    activation = softmax(z)
-
-    activations.append(activation)
-    zs.append(z)
+    with gzip.open(cwd + filename_labels, 'rb') as f:
+            labels = f.read()
     cp2 = time()
+    labels_time = str((cp2-cp1)*1000)
 
-    return (weights, zs, activations, 1000 * (cp2 - cp1))
-
-def backward_prop(weights, zs, activations, images, objective):
-    cp1 = time()
-    dws = []
-    dbs = []
-    dAs = []
-
-    dA0 = 2*(activations[-1] - objective.reshape(-1, 1))
-    dAs.append(dA0)
-
-    db1 = dA0 * sigmoid_prime(zs[-1]).reshape(-1, 1)
-    dA1 = np.dot(weights[-1].T, db1.reshape(-1, 1))
-    dw1 = np.dot(db1.reshape(-1, 1), activations[-2].reshape(-1, 1).T)
-    
-    dAs.append(dA1)
-    dbs.append(db1)
-    dws.append(dw1)
-    
-    for i in range(len(weights) + 1):
-        if (i == 0) or (i == 1):
-            continue
-        elif i == len(weights):
-            continue
-        else:
-            db1 = dA1 * sigmoid_prime(zs[-i]).reshape(-1, 1)
-            dw1 = np.dot(db1.reshape(-1, 1), activations[-i-1].reshape(-1, 1).T)
-            dA1 = np.dot(weights[-i].T, db1.reshape(-1, 1))
-            dAs.insert(0, dA1)
-            dws.insert(0, dw1)
-            dbs.insert(0, db1)
-
-    db1 = dA1 * sigmoid_prime(zs[0]).reshape(-1, 1)
-    dw1 = np.dot(db1.reshape(-1, 1), images.reshape(-1, 1).T)
-    dA1 = np.dot(weights[0].T, db1.reshape(-1, 1))
-    dAs.insert(0, dA1)
-    dws.insert(0, dw1)
-    dbs.insert(0, db1)
-    cp2 = time()
-
-    return (dws, dbs, 1000 * (cp2 - cp1))
-
-def update_NN(weights, biases, dws, dbs, learning_rate):
-    cp1 = time()
-    u_weights = []
-    u_biases = []
-    for i,v in enumerate(weights):
-        u_weights.append(v - learning_rate * dws[i])
-        u_biases.append(biases[i].reshape(-1, 1) - learning_rate * dbs[i])
-    cp2 = time()
-    
-    return (u_weights, u_biases, 1000 * (cp2 - cp1))
-
-def gradient_descend(images, labels, learning_rate, iters):
-    cp1 = time()
-    layers = 2
-    neurons = np.array([784, 10, 10, 10])
-    weights, biases = create_NN(layers, neurons)
-    objectives = nums2vects(labels)
-    counter = 0
-    accuracy = np.array([])
-    times = np.zeros((3, iters))
-
-    for i in range(iters):
-        weights, zs, activations, fp_time = forward_prop(weights, biases, images[:, i])
-        dws, dbs, bp_time = backward_prop(weights, zs, activations, images[:, i], objectives[:, i])
-        weights, biases, unn_time = update_NN(weights, biases, dws, dbs, learning_rate)
-        counter += (np.argmax(activations[-1], 0) == labels[i])[0]
-        times[:, i] = np.array([fp_time, bp_time, unn_time])
-        if i == 0:
-            continue
-        accuracy = np.append(accuracy, 100*counter / i)
-        if i % 10000 == 0:
-            print("[INFO] iteration number: ", i)
-            print("[INFO] Accuracy: ", round(100*counter / i, 2), "%")
-    print("[INFO] iteration number: ", iters)
-    print("[INFO] Accuracy: ", round(100*counter / iters, 2), "%")
-    accuracy = np.append(accuracy, 100*counter / iters)
-    times = np.array([i.sum()/iters for i in times])
-    times = np.append(times, times.sum())
-    
-    cp2 = time()
-    mean_times = np.append(times, np.array([1000 * (cp2 - cp1)]))
-    return (weights, biases, accuracy, mean_times)
+    return (images, labels, images_time, labels_time)
 
 if __name__ == '__main__':
-    start_cp = time()
-    path2images = "training_set/train-images-idx3-ubyte.gz"
-    images, img_time = read_data(path2images)
+    global cwd 
+    cwd = os.getcwd() + "\\"
 
-    path2labels = "training_set/train-labels-idx1-ubyte.gz"
-    labels, lbl_time = read_data(path2labels)
+    train_images, train_labels, train_images_time, train_labels_time = read_data("training_set/train-images-idx3-ubyte.gz", "training_set/train-labels-idx1-ubyte.gz")
+    test_images, test_labels, test_images_time, test_labels_time = read_data("test_set/t10k-images-idx3-ubyte.gz", "test_set/t10k-labels-idx1-ubyte.gz")
 
     # Documentation on how to read the data here: http://yann.lecun.com/exdb/mnist/
-    images = np.frombuffer(images, dtype=np.uint8, offset=16).reshape(-1, 28, 28)
-    labels = np.frombuffer(labels, dtype=np.uint8, offset=8).reshape(-1)
-    data_images = images.reshape(60000, 784).T / 255
+    train_images = np.frombuffer(train_images, dtype=np.uint8, offset=16).reshape(-1, 28, 28)
+    train_labels = np.frombuffer(train_labels, dtype=np.uint8, offset=8).reshape(-1)
+    train_images = train_images.reshape(60000, 784).T / 255
+    test_images = np.frombuffer(test_images, dtype=np.uint8, offset=16).reshape(-1, 28, 28)
+    test_labels = np.frombuffer(test_labels, dtype=np.uint8, offset=8).reshape(-1)
+    test_images = test_images.reshape(10000, 784).T / 255
 
-    print('[INFO] Time elapsed reading images:\t{0} ms\n[INFO] Time elapsed reading labels:\t{1} ms\n'.format(img_time, lbl_time))
+    print('[INFO] Time elapsed reading train images:\t{0} ms\n[INFO] Time elapsed reading train labels:\t{1} ms\n'.format(train_images_time, train_labels_time))
 
-    # show_rand_image(images, labels)
-    learning_rate, iters = 0.05, 60000
+    learning_rate = 0.05
+    N_network = neural_network([10, 10], learning_rate)
+    N_network.train_mode(train_images, train_labels)
+    N_network.predict_mode(test_images[:, 0])
 
-    weights, biases, accuracy, mean_times = gradient_descend(data_images, labels, learning_rate, iters)
-    end_cp = time()
-    mean_times = np.append(mean_times, 1000*(end_cp - start_cp))
-    table_headers = np.array([[""], ["Mean Time per Iteration (ms)"], ["Iterations per Second"]])
-    time_names = np.array(["Forward Propagation", "Backward Propagation", "Update Neural Network", "Total Iteration", "Gradient Descend", "Total Program"])
-    time_data = np.column_stack((table_headers, np.array([time_names, mean_times, 1000/mean_times]))).T
+    # pred, fp_time = N_network.predict_mode()
+    
 
-    # Create figure and grid layout
-    fig = plt.figure(num=1)
-    gs = GridSpec(1, 2, width_ratios=[2, 1])  # Divide the figure into 1 row, 2 columns
 
-    # Create the left subplot for the table
-    ax_table = fig.add_subplot(gs[0, 0])
-    table = ax_table.table(cellText=time_data, loc='center', cellLoc='center')
-    table.auto_set_font_size(False)
-    table.set_fontsize(14)
-    table.scale(1.2, 1.2)
-    ax_table.axis('off')
+    
 
-    # Create the right subplot for the graphic
-    ax_graphic = fig.add_subplot(gs[0, 1])
-    ax_graphic.set_title("Number of Iterations: " + str(iters))
-    ax_graphic.set_xlabel("Number of Iteration")
-    ax_graphic.set_ylabel("Accuracy Achieved")
-    ax_graphic.plot(range(1, iters + 1), accuracy)
-
-    # Adjust spacing between subplots
-    fig.tight_layout()
-    plt.show()
+    
