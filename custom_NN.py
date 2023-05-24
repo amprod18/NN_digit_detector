@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from time import *
 import os
+import pickle
 
 
 class neural_network():
@@ -191,50 +192,17 @@ class neural_network():
     def predict_mode(self, image, label):
         fp_time = self.forward_prop(image)
         pred = np.argmax(self.activations[-1], 0)
-        self.show_image(image.reshape(28, 28), "Predicted number: " + str(pred[0]) + "\tCorrect label: " + str(label), 1)
+        self.show_image(image.reshape(28, 28), f"Predicted number: {pred[0]}   Correct label: {label}", 1)
         return (pred, fp_time)
-
-def read_data(filename_images, filename_labels):
-    cp1 = time()
-    with gzip.open(cwd + filename_images, 'rb') as f:
-            images = f.read()
-    cp2 = time()
-    images_time = str((cp2-cp1)*1000)
-
-    cp1 = time()
-    with gzip.open(cwd + filename_labels, 'rb') as f:
-            labels = f.read()
-    cp2 = time()
-    labels_time = str((cp2-cp1)*1000)
-
-    return (images, labels, images_time, labels_time)
-
-if __name__ == '__main__':
-    global cwd 
-    cwd = os.getcwd() + "\\"
-
-    train_images, train_labels, train_images_time, train_labels_time = read_data("training_set/train-images-idx3-ubyte.gz", "training_set/train-labels-idx1-ubyte.gz")
-    test_images, test_labels, test_images_time, test_labels_time = read_data("test_set/t10k-images-idx3-ubyte.gz", "test_set/t10k-labels-idx1-ubyte.gz")
-
-    # Documentation on how to read the data here: http://yann.lecun.com/exdb/mnist/
-    train_images = np.frombuffer(train_images, dtype=np.uint8, offset=16).reshape(-1, 28, 28)
-    train_labels = np.frombuffer(train_labels, dtype=np.uint8, offset=8).reshape(-1)
-    train_images = train_images.reshape(60000, 784).T / 255
-    test_images = np.frombuffer(test_images, dtype=np.uint8, offset=16).reshape(-1, 28, 28)
-    test_labels = np.frombuffer(test_labels, dtype=np.uint8, offset=8).reshape(-1)
-    test_images = test_images.reshape(10000, 784).T / 255
-
-    print('[INFO] Time elapsed reading train images:\t{0} ms\n[INFO] Time elapsed reading train labels:\t{1} ms\n'.format(train_images_time, train_labels_time))
-
-    learning_rate = 0.05
-    N_network = neural_network([10], learning_rate)
-    N_network.train_mode(train_images, train_labels)
-    while True:
-        number = np.random.randint(0, 1e4)
-        N_network.predict_mode(test_images[:, number], test_labels[number])
     
+    def save_params(self, output_file):
+        with open(f"{output_file}_biases.txt", "wb") as f:
+            pickle.dump(self.biases, f)
+        with open(f"{output_file}_weights.txt", "wb") as f:
+            pickle.dump(self.weights, f)
 
-
-    
-
-    
+    def retrieve_params(self, params_file):
+        with open(f"{params_file}_biases.txt", "rb") as f:
+            self.biases = pickle.load(f)
+        with open(f"{params_file}_weights.txt", "rb") as f:
+            self.weights = pickle.load(f)
