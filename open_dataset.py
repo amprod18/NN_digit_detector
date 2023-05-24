@@ -188,10 +188,10 @@ class neural_network():
         time_data = np.column_stack((table_headers, np.array([time_names, mean_times, 1000/mean_times]))).T
         self.plot_training_data(accuracy, time_data)
 
-    def predict_mode(self, image):
+    def predict_mode(self, image, label):
         fp_time = self.forward_prop(image)
         pred = np.argmax(self.activations[-1], 0)
-        self.show_image(image.reshape(28, 28), "Predicted number: " + str(pred[0]), 1)
+        self.show_image(image.reshape(28, 28), "Predicted number: " + str(pred[0]) + "\tCorrect label: " + str(label), 1)
         return (pred, fp_time)
 
 def read_data(filename_images, filename_labels):
@@ -227,9 +227,11 @@ if __name__ == '__main__':
     print('[INFO] Time elapsed reading train images:\t{0} ms\n[INFO] Time elapsed reading train labels:\t{1} ms\n'.format(train_images_time, train_labels_time))
 
     learning_rate = 0.05
-    N_network = neural_network([10, 10], learning_rate)
+    N_network = neural_network([10], learning_rate)
     N_network.train_mode(train_images, train_labels)
-    N_network.predict_mode(test_images[:, np.random.randint(0, 1e4)])
+    while True:
+        number = np.random.randint(0, 1e4)
+        N_network.predict_mode(test_images[:, number], test_labels[number])
     
 
 
