@@ -1,10 +1,7 @@
-import gzip
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from time import *
-import os
+import time
 import pickle
 
 
@@ -31,7 +28,7 @@ class neural_network():
         self.dAs = self.activations.copy()
         
     def forward_prop(self, image):
-        cp1 = time()
+        cp1 = time.perf_counter()
         z = np.dot(self.weights[0], image.reshape(-1, 1)) + self.biases[0].reshape(-1, 1)
         activation = self.sigmoid(z)
         self.activations[0] = activation
@@ -54,12 +51,12 @@ class neural_network():
 
         self.activations[-1] = activation
         self.zs[-1] = z
-        cp2 = time()
+        cp2 = time.perf_counter()
 
         return (1000 * (cp2 - cp1))
     
     def backward_prop(self, image, objective):
-        cp1 = time()
+        cp1 = time.perf_counter()
 
         dA0 = 2*(self.activations[-1] - objective.reshape(-1, 1))
         self.dAs[-1] = dA0
@@ -91,21 +88,21 @@ class neural_network():
         self.dAs[0] = dA1
         self.dws[0] = dw1
         self.dbs[0] = db1
-        cp2 = time()
+        cp2 = time.perf_counter()
 
         return (1000 * (cp2 - cp1))
     
     def update_NN(self):
-        cp1 = time()
+        cp1 = time.perf_counter()
         for i,v in enumerate(self.weights):
             self.weights[i] = v - self.learning_rate * self.dws[i]
             self.biases[i] = self.biases[i].reshape(-1, 1) - self.learning_rate * self.dbs[i]
-        cp2 = time()
+        cp2 = time.perf_counter()
         
         return (1000 * (cp2 - cp1))
     
     def gradient_descend(self, images, labels):
-        cp1 = time()
+        cp1 = time.perf_counter()
         objectives = self.nums2vects(labels)
         counter = 0
         accuracy = np.array([])
@@ -131,7 +128,7 @@ class neural_network():
         times = np.array([i.sum()/iters for i in times])
         times = np.append(times, times.sum())
         
-        cp2 = time()
+        cp2 = time.perf_counter()
         mean_times = np.append(times, np.array([1000 * (cp2 - cp1)]))
         return (accuracy, mean_times)
     
