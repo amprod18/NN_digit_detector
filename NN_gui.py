@@ -11,28 +11,32 @@ from PIL import Image, ImageTk
 class Main_menu(ctk.CTk):
     def __init__(self):
         super().__init__()
+        self.alpha = 1.0
+        self.delta = 0.05
 
-        # self.overrideredirect(True) # Used for fullscreen later on
+        self.overrideredirect(True) # Used for fullscreen later on
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
         self.title("Neural Network Digit Identifier")
         self.geometry(f"{screen_width}x{screen_height}")
         self.geometry("+0+0")
-
-        image_path = cwd + "images/neural_network_icon_dth.png"
-
+        self.exit_button_image = ctk.CTkImage(light_image=Image.open("images/exit_button.png"), size=(20, 20))
+        self.exit_button = ctk.CTkButton(self, text="", width=20, height=20, image=self.exit_button_image, corner_radius=5, fg_color="#F57A91")
+        self.exit_button.configure(command=self.exit_app)
+        self.exit_button.place(x=screen_width-40, y=10)
         
         
-        image = ctk.CTkImage(light_image=Image.open("images/neural_network_icon_lth.png"), dark_image=Image.open("images/neural_network_icon_dth.png"), size=(250, 250))
+        self.logo = ctk.CTkImage(light_image=Image.open("images/neural_network_icon_lth.png"), dark_image=Image.open("images/neural_network_icon_dth.png"), size=(250, 250))
         image_width, image_height = 250, 250
-        self.start_logo = ctk.CTkLabel(self, image=image, text="")
+        self.start_logo = ctk.CTkLabel(self, image=self.logo, text="")
         x = (screen_width - image_width) // 2
         y = (screen_height - image_height) // 2
+        f = lambda event: self.initial_progress_bar(event, x, y)
+        self.bind('<Button-1>', f)
+        self.bind('<Key>', f)
 
-        self.start_label = ctk.CTkLabel(self, text="", width=screen_width, height=screen_height, fg_color='transparent')
-        self.start_label.bind(command=lambda x, y: self.initial_progress_bar(x, y))
+        self.start_label = ctk.CTkLabel(self, text="", width=image_width, height=50, fg_color='transparent')
         self.start_label.place(x=0, y=0)
-
         self.start_logo.place(x=x, y=y)
 
         self.progressbar = ctk.CTkProgressBar(self, width=image_width, mode='determinate', determinate_speed=0.2)
@@ -42,7 +46,8 @@ class Main_menu(ctk.CTk):
         self.start_text = ctk.CTkLabel(self, width=image_width, height=50, text="Press Anywhere to Continue", fg_color='transparent')
         self.start_text.place(x=x, y=y)
 
-    def initial_progress_bar(self, x, y):
+    def initial_progress_bar(self, event, x, y):
+        self.unbind_all(('<Button-1>', '<Key>'))
         self.start_text.destroy()
         self.start_label.destroy()
         self.progressbar.place(x=x, y=y)
@@ -55,14 +60,54 @@ class Main_menu(ctk.CTk):
             self.progressbar.set(prog)
             step = 2 * np.random.random_sample() / 5
             prog += step
-            time.sleep(1.3 * np.random.random_sample() + 0.2)
+            time.sleep(0.8*np.random.random_sample() + 0.2)
             self.update_idletasks()
         self.progressbar.stop()
         self.progressbar.set(1)
+        
+        self.start_logo.destroy()
+        self.progressbar.destroy()
 
+        self.main_menu()
+    
+    def main_menu(self):
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure((2, 3), weight=0)
+        self.grid_rowconfigure((0, 1, 2), weight=1)
 
-             
-             
+        self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.frame_1 = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.frame_2 = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.frame_3 = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.frame_1.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        self.frame_2.grid(row=0, column=1, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        self.frame_3.grid(row=0, column=2, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        self.frame_1_1 = ctk.CTkFrame(self.frame_1, fg_color="transparent")
+        self.frame_1_2 = ctk.CTkFrame(self.frame_1, fg_color="transparent")
+        self.frame_1_3 = ctk.CTkFrame(self.frame_1, fg_color="transparent")
+        self.frame_1_1.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        self.frame_1_2.grid(row=1, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        self.frame_1_3.grid(row=2, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+
+        self.frame_3_1 = ctk.CTkFrame(self.frame_3, fg_color="transparent")
+        self.frame_3_2 = ctk.CTkFrame(self.frame_3, fg_color="transparent")
+        self.frame_3_1.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        self.frame_3_2.grid(row=1, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+
+        self.load_model_button = ctk.CTkButton(self.frame_1_1, text="Load Model")
+        self.train_model_button = ctk.CTkButton(self.frame_1_1, text="Load Model")
+        self.load_model_button.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="")
+        self.train_model_button.grid(row=0, column=1, padx=(20, 20), pady=(20, 0), sticky="")
+
+        self.predict_button = ctk.CTkButton(self.frame_1_3, text="Predict")
+        self.predict_button.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="")
+
+        self.input_image = ctk.CTkLabel(self.frame_3_1, text="Input image will appear here")
+        self.input_image.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+    
+    def exit_app(self):
+        time.sleep(0.5)
+        self.destroy()
 
 
 def read_data(filename_images, filename_labels):
