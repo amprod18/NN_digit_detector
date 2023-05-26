@@ -153,7 +153,7 @@ class neural_network():
         ax.imshow(image, cmap='gray')
         plt.show()
     
-    def plot_training_data(self, accuracy, time_data):
+    def plot_training_data(self, accuracy, time_data, show=False):
         # Create figure and grid layout
         fig = plt.figure(num=0)
         gs = GridSpec(1, 2, width_ratios=[2, 1])  # Divide the figure into 1 row, 2 columns
@@ -175,21 +175,23 @@ class neural_network():
 
         # Adjust spacing between subplots
         fig.tight_layout()
-        plt.show()
+        if show:
+            plt.show()
     
     def train_mode(self, images, labels):
         print("[INFO] Starting training...")
         accuracy, mean_times = self.gradient_descend(images, labels)
         self.accuracy = accuracy[-1]
         table_headers = np.array([[""], ["Mean Time per Iteration (ms)"], ["Iterations per Second"]])
-        time_names = np.array(["Forward Propagation", "Backward Propagation", "Update Neural Network", "Total Iteration", "Total Training"])
-        time_data = np.column_stack((table_headers, np.array([time_names, mean_times, 1000/mean_times]))).T
-        self.plot_training_data(accuracy, time_data)
+        self.time_names = np.array(["Forward Propagation", "Backward Propagation", "Update Neural Network", "Total Iteration", "Total Training"])
+        self.time_data = np.column_stack((table_headers, np.array([self.time_names, mean_times, 1000/mean_times]))).T
+        self.plot_training_data(accuracy, self.time_data)
 
-    def predict_mode(self, image, label):
+    def predict_mode(self, image, label, show=False):
         fp_time = self.forward_prop(image)
         pred = np.argmax(self.activations[-1], 0)
-        self.show_image(image.reshape(28, 28), f"Predicted number: {pred[0]}   Correct label: {label}", 1)
+        if show:
+            self.show_image(image.reshape(28, 28), f"Predicted number: {pred[0]}   Correct label: {label}", 1)
         return (pred, fp_time)
     
     def save_params(self, output_file):
@@ -197,9 +199,13 @@ class neural_network():
             pickle.dump(self.biases, f)
         with open(f"{output_file}_weights.txt", "wb") as f:
             pickle.dump(self.weights, f)
+        with open(f"{output_file}_metadata.txt", "wb") as f:
+            pickle.dump([self.accuracy, self.time_data], f)
 
     def retrieve_params(self, params_file):
         with open(f"{params_file}_biases.txt", "rb") as f:
             self.biases = pickle.load(f)
         with open(f"{params_file}_weights.txt", "rb") as f:
             self.weights = pickle.load(f)
+        with open(f"{params_file}_metadata.txt", "wb") as f:
+            self.accuracy, self.timde_data = pickle.load(f)

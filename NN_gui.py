@@ -5,7 +5,8 @@ import numpy as np
 import custom_NN
 import customtkinter as ctk
 from PIL import Image
-import keyboard
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 
 class Main_menu(ctk.CTk):
@@ -38,40 +39,42 @@ class Main_menu(ctk.CTk):
         image_width, image_height = 250, 250
         self.start_logo = ctk.CTkLabel(self.main_frame.tab("Loading Screen"), image=self.logo, text="")
         x = (self.screen_width - 20 - image_width) // 2
-        y = (self.screen_height - 40 - image_height) // 2
-
+        y = (self.screen_height - 40 - image_height) // 2 
+        self.bind('<Button-1>', lambda event: self.initial_progress_bar(event, x, y))
         self.start_logo.place(x=x, y=y)
 
         self.progressbar = ctk.CTkProgressBar(self.main_frame.tab("Loading Screen"), width=image_width, mode='determinate', determinate_speed=0.2)
         self.progressbar.set(0)
         y = y + image_height + 30
         
-        self.start_text = ctk.CTkLabel(self.main_frame.tab("Loading Screen"), width=image_width, height=50, text="Press SPACE to Continue", fg_color='transparent', font=self.font)
+        self.start_text = ctk.CTkLabel(self.main_frame.tab("Loading Screen"), width=image_width, height=50, text="Press Anywhere to Continue", fg_color='transparent', font=self.font)
         self.start_text.place(x=x-27, y=y)
 
-        if keyboard.is_pressed('space'):
-            self.initial_progress_bar(x, y)
+    def initial_progress_bar(self, event, x, y):
+        global is_started
+        if not is_started:
+            self.progressbar.place(x=x, y=y+50)
+            self.progressbar.start()
 
-    def initial_progress_bar(self, x, y):
-        self.progressbar.place(x=x, y=y+50)
-        self.progressbar.start()
+            prog = 0
+            self.progressbar.start()
+            
+            while prog < 1:
+                self.progressbar.set(prog)
+                step = 0.1*np.random.random_sample()
+                prog += step
+                time.sleep(0.05*np.random.random_sample())
+                self.update_idletasks()
+            self.progressbar.stop()
+            self.progressbar.set(1)
+            
+            self.start_logo.destroy()
+            self.progressbar.destroy()
 
-        prog = 0
-        self.progressbar.start()
-        
-        while prog < 1:
-            self.progressbar.set(prog)
-            step = 0.1*np.random.random_sample()
-            prog += step
-            time.sleep(0.05*np.random.random_sample())
-            self.update_idletasks()
-        self.progressbar.stop()
-        self.progressbar.set(1)
-        
-        self.start_logo.destroy()
-        self.progressbar.destroy()
+            self.main_menu(np.zeros(10), [None, 0])
 
-        self.main_menu(np.zeros(10), [None, 0])
+            is_started = True
+            self.unbind('<Button-1>')
     
     def main_menu(self, probabilities, pred):
         # Grid is 14x8
@@ -99,10 +102,10 @@ class Main_menu(ctk.CTk):
         self.NN_image_frame = ctk.CTkFrame(self.main_frame.tab("Main Menu"))
         self.NN_image_frame.grid(row=1, column=2, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=4, rowspan=12)
         self.NN_image = ctk.CTkLabel(self.NN_image_frame, text="Neural Network image will appear here", fg_color='green', font=self.font)
-        self.NN_image.grid(row=0, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew")
+        self.NN_image.grid(row=0, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew", rowspan=12)
 
         # Configure Output Zone (right column)
-        self.input_image = ctk.CTkLabel(self.main_frame.tab("Main Menu"), text="Input image will appear here", fg_color='green', font=self.font)
+        self.input_image = ctk.CTkLabel(self.main_frame.tab("Main Menu"), text="Predicted image will appear here", font=self.font)
         self.input_image.grid(row=0, column=6, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=2, rowspan=6)
 
         self.output_info_frame = ctk.CTkFrame(self.main_frame.tab("Main Menu"))
@@ -112,13 +115,16 @@ class Main_menu(ctk.CTk):
         self.main_frame.set("Main Menu")
     
     def train_model(self):
+        self.train_model_button.configure(border_color='red', border_width=5, text='Training...')
+        self.update_idletasks()
         learning_rate = float(self.NN_info_frame.learning_rate_entry.get())
         self.hidden_layers_sizes = [int(i) for i in self.NN_info_frame.hidden_layers_size_entry.get().split(sep=', ')]
 
         self.N_network = custom_NN.neural_network(self.hidden_layers_sizes, learning_rate)
-        self.N_network.train_mode(train_images, train_labels)
+        train_data = self.N_network.train_mode(train_images, train_labels)
         values = [learning_rate, self.hidden_layers_sizes, 784, 10, round(self.N_network.accuracy, 2), 'None']
         self.NN_info_frame.update_input_frame(values)
+        self.train_model_button.configure(border_color='green', text='Training Complete!')
     
     def load_model(self):
         learning_rate = float(self.NN_info_frame.learning_rate_entry.get())
@@ -134,14 +140,15 @@ class Main_menu(ctk.CTk):
 
         data = np.random.randint(0, 1e4)
         pred, pred_time = self.N_network.predict_mode(test_images[:, data], test_labels[data])
+        pred_image = Image.fromarray(test_images[:, data].reshape(28, 28)*255)
 
-        pred_image = ctk.CTkImage(light_image=Image.fromarray(test_images[:, data].reshape(28, 28)), size=(300, 300))
+        pred_image = ctk.CTkImage(light_image=pred_image, size=(300, 300))
         self.input_image.configure(image=pred_image, text='')
 
-        values = [self.N_network.learning_rate, self.hidden_layers_sizes, 784, 10, self.N_network.accuracy, pred_time]
+        values = [self.N_network.learning_rate, self.hidden_layers_sizes, 784, 10, round(self.N_network.accuracy, 2), pred_time]
         self.NN_info_frame.update_input_frame(values)
 
-        self.output_info_frame.update_output_frame(self, self.N_network.activations[-1].reshape(1, 10), (pred, self.N_network.activations[-1][pred]))
+        self.output_info_frame.update_output_frame(self.N_network.activations[-1], (pred, self.N_network.activations[-1][pred]))
     
     def exit_app(self):
         time.sleep(0.3)
@@ -228,21 +235,18 @@ class NN_output_frame(ctk.CTkFrame):
         self.frame_title = ctk.CTkLabel(master, text='Model Prediction', font=font)
         self.frame_title.grid(row=0, column=0, padx=(10, 10), pady=(10, 10), sticky="nsew", columnspan=2)
 
-        for i in range(5):
-            self.probs_labels_1 = ctk.CTkLabel(master, text=f'{i}: {probabilities[i]} %', font=font)
-            self.probs_labels_1.grid(row=i+1, column=0, padx=(10, 10), pady=(10, 10), sticky="nsew")
-            self.probs_labels_2 = ctk.CTkLabel(master, text=f'{2*i+1}: {probabilities[2*i+1]} %', font=font)
-            self.probs_labels_2.grid(row=i+1, column=1, padx=(10, 10), pady=(10, 10), sticky="nsew")
+        self.probs_labels = [ctk.CTkLabel(master, text=f'{i}: {probabilities[i]} %', font=font) for i in range(10)]
+        for i, v in enumerate(self.probs_labels):
+            v.grid(row=i%5 + 1, column=i//5, padx=(10, 10), pady=(10, 10), sticky="nsew")
         
         self.pred_label = ctk.CTkLabel(master, text=f'Prediction: {pred[0]} with {pred[1]}% confidence', font=font)
         self.pred_label.grid(row=7, column=0, padx=(10, 10), pady=(10, 10), rowspan=2, sticky="nsew", columnspan=2)
     
     def update_output_frame(self, probabilities, pred):
-        for i in range(5):
-            self.probs_labels_1.configure(text=f'{i}: {probabilities[i]*100} %')
-            self.probs_labels_2.configure(text=f'{2*i+1}: {probabilities[2*i+1]*100} %')
+        for i, v in enumerate(self.probs_labels):
+            v.configure(text=f'{i}: {round(probabilities[i][0]*100, 2)} %')
 
-        self.pred_label.configure(text=f'Prediction: {pred[0]} with {pred[1]*100}% confidence')
+        self.pred_label.configure(text=f'Prediction: {pred[0][0]} with {round(pred[1][0][0]*100, 2)}% confidence')
              
 
 def read_data(filename_images, filename_labels):
@@ -278,8 +282,9 @@ def load_data(filename_images_train, filename_labels_train, filename_images_test
 
 
 if __name__ == "__main__":
-    global cwd, train_images, train_labels, test_images, test_labels
+    global cwd, train_images, train_labels, test_images, test_labels, is_started
     cwd = os.getcwd() + "\\"
+    is_started = False
 
     ctk.set_appearance_mode("System")
     ctk.set_default_color_theme("blue")
