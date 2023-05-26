@@ -14,26 +14,30 @@ class Main_menu(ctk.CTk):
         self.delta = 0.05
 
         self.overrideredirect(True) # Used for fullscreen later on
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
+        self.screen_width = self.winfo_screenwidth()
+        self.screen_height = self.winfo_screenheight()
+        self.font = ctk.CTkFont(family="helvetica", size=self.screen_height//45)
         self.title("Neural Network Digit Identifier")
-        self.geometry(f"{screen_width}x{screen_height}")
+        self.geometry(f"{self.screen_width}x{self.screen_height}")
         self.geometry("+0+0")
-        self.main_frame = ctk.CTkTabview(self, width=screen_width, height=screen_height)
-        self.main_frame.pack(padx=(20, 0), pady=(20, 0))
+        self.main_frame = ctk.CTkTabview(self, width=self.screen_width-20, height=self.screen_height-40, state='disabled')
+        self.main_frame.grid(row=0, column=0, padx=(10, 10), pady=(30, 10), sticky="nsew")
         self.main_frame.add("Loading Screen")
         self.main_frame.add("Main Menu")
         self.exit_button_image = ctk.CTkImage(light_image=Image.open("images/exit_button.png"), size=(20, 20))
         self.exit_button = ctk.CTkButton(self, text="", width=20, height=20, image=self.exit_button_image, corner_radius=5, fg_color="#F57A91", hover_color='#FF002C')
         self.exit_button.configure(command=self.exit_app)
-        self.exit_button.place(x=screen_width-40, y=10)
-        
+        self.exit_button.place(x=self.screen_width-45, y=10)
+
+        self.logo_image = ctk.CTkImage(light_image=Image.open("images/neural_network_icon_lth.png"), dark_image=Image.open("images/neural_network_icon_dth.png"), size=(20, 20))
+        self.logo_label = ctk.CTkLabel(self, text="", width=20, height=20, image=self.logo_image, corner_radius=5)
+        self.logo_label.place(x=10, y=10)
         
         self.logo = ctk.CTkImage(light_image=Image.open("images/neural_network_icon_lth.png"), dark_image=Image.open("images/neural_network_icon_dth.png"), size=(250, 250))
         image_width, image_height = 250, 250
         self.start_logo = ctk.CTkLabel(self.main_frame.tab("Loading Screen"), image=self.logo, text="")
-        x = (screen_width - image_width) // 2
-        y = (screen_height - image_height) // 2
+        x = (self.screen_width - 20 - image_width) // 2
+        y = (self.screen_height - 40 - image_height) // 2
         f = lambda event: self.initial_progress_bar(event, x, y)
         self.bind('<Button-1>', f)
         self.bind('<Key>', f)
@@ -43,8 +47,8 @@ class Main_menu(ctk.CTk):
         self.progressbar.set(0)
         y = y + image_height + 30
         
-        self.start_text = ctk.CTkLabel(self.main_frame.tab("Loading Screen"), width=image_width, height=50, text="Press Anywhere to Continue", fg_color='transparent')
-        self.start_text.place(x=x, y=y)
+        self.start_text = ctk.CTkLabel(self.main_frame.tab("Loading Screen"), width=image_width, height=50, text="Press Anywhere to Continue", fg_color='transparent', font=self.font)
+        self.start_text.place(x=x-27, y=y)
 
     def initial_progress_bar(self, event, x, y):
         self.unbind_all(('<Button-1>', '<Key>'))
@@ -66,49 +70,143 @@ class Main_menu(ctk.CTk):
         self.start_logo.destroy()
         self.progressbar.destroy()
 
-        self.main_menu()
+        self.main_menu(np.zeros(10), [None, 0])
     
-    def main_menu(self):
-        self.update_idletasks()
-        # self.grid_columnconfigure(1, weight=1)
-        # self.grid_columnconfigure((2, 3), weight=0)
-        # self.grid_rowconfigure((0, 1, 2), weight=1)
+    def main_menu(self, probabilities, pred):
+        # Grid is 14x8
+        rows, columns = tuple(range(14)), tuple(range(8))
+        self.main_frame.tab("Main Menu").grid_columnconfigure(columns, weight=1)
+        self.main_frame.tab("Main Menu").grid_rowconfigure(rows, weight=1)
 
-        self.frame_1 = ctk.CTkFrame(self.main_frame.tab("Main Menu"), fg_color="transparent")
-        self.frame_2 = ctk.CTkFrame(self.main_frame.tab("Main Menu"), fg_color="transparent")
-        self.frame_3 = ctk.CTkFrame(self.main_frame.tab("Main Menu"), fg_color="transparent")
-        self.frame_1.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
-        self.frame_2.grid(row=0, column=1, padx=(20, 20), pady=(20, 0), sticky="nsew")
-        self.frame_3.grid(row=0, column=2, padx=(20, 20), pady=(20, 0), sticky="nsew")
-        self.frame_1_1 = ctk.CTkFrame(self.frame_1, fg_color="transparent")
-        self.frame_1_2 = ctk.CTkFrame(self.frame_1, fg_color="transparent")
-        self.frame_1_3 = ctk.CTkFrame(self.frame_1, fg_color="transparent")
-        self.frame_1_1.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
-        self.frame_1_2.grid(row=1, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
-        self.frame_1_3.grid(row=2, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        # Configure Input Zone (left column)
+        self.load_model_button = ctk.CTkButton(self.main_frame.tab("Main Menu"), text="Load Model", font=self.font)
+        self.train_model_button = ctk.CTkButton(self.main_frame.tab("Main Menu"), text="Train Model", font=self.font)
+        self.load_model_button.grid(row=0, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew", rowspan=2)
+        self.train_model_button.grid(row=0, column=1, padx=(20, 20), pady=(20, 20), sticky="nsew", rowspan=2)
 
-        self.frame_3_1 = ctk.CTkFrame(self.frame_3, fg_color="transparent")
-        self.frame_3_2 = ctk.CTkFrame(self.frame_3, fg_color="transparent")
-        self.frame_3_1.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
-        self.frame_3_2.grid(row=1, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        self.NN_info_frame = ctk.CTkFrame(self.main_frame.tab("Main Menu"))
+        self.NN_info_frame.grid(row=3, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=2, rowspan=10)
+        self.NN_info_frame = NN_info_frame(self.NN_info_frame, self.font)
 
-        self.load_model_button = ctk.CTkButton(self.frame_1_1, text="Load Model")
-        self.train_model_button = ctk.CTkButton(self.frame_1_1, text="Train Model")
-        self.load_model_button.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="")
-        self.train_model_button.grid(row=0, column=1, padx=(20, 20), pady=(20, 0), sticky="")
+        self.predict_button = ctk.CTkButton(self.main_frame.tab("Main Menu"), text="Predict", font=self.font)
+        self.predict_button.grid(row=13, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=2, rowspan=2)
 
-        self.predict_button = ctk.CTkButton(self.frame_1_3, text="Predict")
-        self.predict_button.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="")
+        # Configure NN Zone (center column)
+        self.NN_image_frame = ctk.CTkFrame(self.main_frame.tab("Main Menu"))
+        self.NN_image_frame.grid(row=1, column=2, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=4, rowspan=12)
+        self.NN_image = ctk.CTkLabel(self.NN_image_frame, text="Neural Network image will appear here", fg_color='green')
+        self.NN_image.grid(row=0, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew")
 
-        self.input_image = ctk.CTkLabel(self.frame_3_1, text="Input image will appear here")
-        self.input_image.grid(row=0, column=0, padx=(20, 20), pady=(20, 0), sticky="nsew")
+        # Configure Output Zone (right column)
+        self.input_image = ctk.CTkLabel(self.main_frame.tab("Main Menu"), text="Input image will appear here", fg_color='green')
+        self.input_image.grid(row=0, column=6, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=2, rowspan=6)
+
+        self.output_info_frame = ctk.CTkFrame(self.main_frame.tab("Main Menu"))
+        self.output_info_frame.grid(row=7, column=6, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=2, rowspan=7)
+        self.output_info_frame = NN_output_frame(self.output_info_frame, probabilities, pred, self.font)
 
         self.main_frame.set("Main Menu")
     
+    def train_model(self):
+        self.NN_info_frame
+        return
+    
+    def load_model(self):
+
+        return
+    
     def exit_app(self):
-        time.sleep(0.5)
+        time.sleep(0.3)
         self.destroy()
 
+
+class NN_info_frame(ctk.CTkFrame):
+    def __init__(self, master, font):
+        super().__init__(master)
+
+        rows, columns = tuple(range(7)), tuple(range(2))
+        self.master.grid_columnconfigure(columns, weight=1)
+        self.master.grid_rowconfigure(rows, weight=1)
+
+        self.frame_title = ctk.CTkLabel(master, text='Model Info', font=font)
+        self.frame_title.grid(row=0, column=0, padx=(20, 20), pady=(20, 10), columnspan=2)
+        # Hid layers 
+        self.hidden_layers_label = ctk.CTkLabel(master, text='Number of Hidden Layers: ', font=font)
+        self.hidden_layers_label.grid(row=1, column=0, padx=(20, 10), pady=(10, 10))
+        self.hidden_layers_entry = ctk.CTkEntry(master, placeholder_text='Sample: 2', font=font)
+        self.hidden_layers_entry.grid(row=1, column=1, padx=(10, 20), pady=(10, 10), sticky="ew")
+
+        # Hid layers sizes
+        self.hidden_layers_size_label = ctk.CTkLabel(master, text='Sizes of Hidden Layers: ', font=font)
+        self.hidden_layers_size_label.grid(row=2, column=0, padx=(20, 10), pady=(10, 10))
+        self.hidden_layers_size_entry = ctk.CTkEntry(master, placeholder_text='Sample: 10, 10', font=font)
+        self.hidden_layers_size_entry.grid(row=2, column=1, padx=(10, 20), pady=(10, 10), sticky="ew")
+
+        # Input size
+        self.input_size_label = ctk.CTkLabel(master, text='Input Size: ', font=font)
+        self.input_size_label.grid(row=3, column=0, padx=(20, 10), pady=(10, 10))
+        self.input_size_entry = ctk.CTkLabel(master, text='None', font=font)
+        self.input_size_entry.grid(row=3, column=1, padx=(10, 20), pady=(10, 10))
+
+        # Output size
+        self.output_size_label = ctk.CTkLabel(master, text='Output Size: ', font=font)
+        self.output_size_label.grid(row=4, column=0, padx=(20, 10), pady=(10, 10))
+        self.output_size_entry = ctk.CTkLabel(master, text='None', font=font)
+        self.output_size_entry.grid(row=4, column=1, padx=(10, 20), pady=(10, 10))
+
+        # Accuracy
+        self.accuracy_label = ctk.CTkLabel(master, text='Accuracy: ', font=font)
+        self.accuracy_label.grid(row=5, column=0, padx=(20, 10), pady=(10, 10))
+        self.accuracy_entry = ctk.CTkLabel(master, text='None', font=font)
+        self.accuracy_entry.grid(row=5, column=1, padx=(10, 20), pady=(10, 10))
+
+        # Mean pred time
+        self.pred_time_label = ctk.CTkLabel(master, text='Mean Prediction Time: ', font=font)
+        self.pred_time_label.grid(row=6, column=0, padx=(20, 10), pady=(10, 20))
+        self.pred_time_entry = ctk.CTkLabel(master, text='None', font=font)
+        self.pred_time_entry.grid(row=6, column=1, padx=(10, 20), pady=(10, 10))
+
+        # Hid layers 
+        self.hidden_layers_label = ctk.CTkLabel(master, text='Input File Path: ', font=font)
+        self.hidden_layers_label.grid(row=7, column=0, padx=(20, 10), pady=(10, 10))
+        self.hidden_layers_entry = ctk.CTkEntry(master, placeholder_text='Path to File', font=font)
+        self.hidden_layers_entry.grid(row=7, column=1, padx=(10, 20), pady=(10, 20), sticky="ew")
+
+    def update_input_frame(self, values):
+        # Hid layers 
+        self.hidden_layers_entry.configure(placeholder_text=values[0])
+        # Hid layers sizes
+        self.hidden_layers_size_entry.configure(placeholder_text=values[1])
+        # Input size
+        self.input_size_entry.configure(text=values[2])
+        # Output size
+        self.output_size_entry.configure(text=values[3])
+        # Accuracy
+        self.accuracy_entry.configure(text=values[4])
+        # Mean pred time
+        self.pred_time_entry.configure(text=values[5])
+
+
+class NN_output_frame(ctk.CTkFrame):
+    def __init__(self, master, probabilities, pred, font):
+        super().__init__(master)
+
+        rows = tuple(range(8))
+        self.master.grid_columnconfigure((0, 1), weight=1)
+        self.master.grid_rowconfigure(rows, weight=1)
+
+        self.frame_title = ctk.CTkLabel(master, text='Model Prediction', font=font)
+        self.frame_title.grid(row=0, column=0, padx=(10, 10), pady=(10, 10), sticky="nsew", columnspan=2)
+
+        for i in range(5):
+            self.probs_labels_1 = ctk.CTkLabel(master, text=f'{i}: {probabilities[i]} %', font=font)
+            self.probs_labels_1.grid(row=i+1, column=0, padx=(10, 10), pady=(10, 10), sticky="nsew")
+            self.probs_labels_2 = ctk.CTkLabel(master, text=f'{2*i+1}: {probabilities[2*i+1]} %', font=font)
+            self.probs_labels_2.grid(row=i+1, column=1, padx=(10, 10), pady=(10, 10), sticky="nsew")
+        
+        self.pred_label = ctk.CTkLabel(master, text=f'Prediction: {pred[0]} with {pred[1]}% confidence', font=font)
+        self.pred_label.grid(row=7, column=0, padx=(10, 10), pady=(10, 10), rowspan=2, sticky="nsew", columnspan=2)
+             
 
 def read_data(filename_images, filename_labels):
     cp1 = time.perf_counter()
@@ -156,9 +254,9 @@ if __name__ == "__main__":
     train_images, train_labels, test_images, test_labels = load_data("training_set/train-images-idx3-ubyte.gz", "training_set/train-labels-idx1-ubyte.gz", "test_set/t10k-images-idx3-ubyte.gz", "test_set/t10k-labels-idx1-ubyte.gz")
 
     learning_rate = 0.05
-    N_network = custom_NN.neural_network([10, 10], learning_rate)
+    # N_network = custom_NN.neural_network([10, 10], learning_rate)
     # N_network.train_mode(train_images, train_labels)
     # N_network.save_params("params_file")
-    N_network.retrieve_params(cwd + "params_file")
-    data = np.random.randint(0, 1e4)
-    N_network.predict_mode(test_images[:, data], test_labels[data])
+    # N_network.retrieve_params(cwd + "params_file")
+    #data = np.random.randint(0, 1e4)
+    # N_network.predict_mode(test_images[:, data], test_labels[data])
