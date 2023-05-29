@@ -321,5 +321,3 @@ if __name__ == "__main__":
     Gui = Main_menu()
 
     Gui.mainloop()
-
-    # self.N_network.save_params("params_file")
