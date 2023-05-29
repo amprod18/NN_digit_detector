@@ -1,3 +1,5 @@
+import lib_installer
+lib_installer.installer()
 import time
 import gzip
 import os
@@ -5,8 +7,6 @@ import numpy as np
 import custom_NN
 import customtkinter as ctk
 from PIL import Image
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 
 
 class Main_menu(ctk.CTk):
@@ -94,9 +94,13 @@ class Main_menu(ctk.CTk):
         self.NN_info_frame.grid(row=3, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=2, rowspan=10)
         self.NN_info_frame = NN_info_frame(self.NN_info_frame, self.font)
 
-        self.predict_button = ctk.CTkButton(self.main_frame.tab("Main Menu"), text="Predict", font=self.font)
-        self.predict_button.grid(row=13, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew", columnspan=2, rowspan=2)
+        self.predict_button = ctk.CTkButton(self.main_frame.tab("Main Menu"), text="Train Neural Network to predict", font=self.font, state='disabled')
+        self.predict_button.grid(row=13, column=1, padx=(20, 20), pady=(20, 20), sticky="nsew", rowspan=2)
         self.predict_button.configure(command=self.predict)
+
+        self.save_params_button = ctk.CTkButton(self.main_frame.tab("Main Menu"), text="Save Parameters", font=self.font, state='disabled')
+        self.save_params_button.grid(row=13, column=0, padx=(20, 20), pady=(20, 20), sticky="nsew", rowspan=2)
+        self.save_params_button.configure(command=self.save_params)
 
         # Configure NN Zone (center column)
         self.NN_image_frame = ctk.CTkFrame(self.main_frame.tab("Main Menu"))
@@ -115,25 +119,47 @@ class Main_menu(ctk.CTk):
         self.main_frame.set("Main Menu")
     
     def train_model(self):
-        self.train_model_button.configure(border_color='red', border_width=5, text='Training...')
+        self.train_model_button.configure(border_color='orange', border_width=5, text='Training...', state='disabled')
+        self.load_model_button.configure(state='disabled')
         self.update_idletasks()
         learning_rate = float(self.NN_info_frame.learning_rate_entry.get())
         self.hidden_layers_sizes = [int(i) for i in self.NN_info_frame.hidden_layers_size_entry.get().split(sep=', ')]
 
         self.N_network = custom_NN.neural_network(self.hidden_layers_sizes, learning_rate)
-        train_data = self.N_network.train_mode(train_images, train_labels)
-        values = [learning_rate, self.hidden_layers_sizes, 784, 10, round(self.N_network.accuracy, 2), 'None']
+        self.N_network.train_mode(train_images, train_labels)
+        self.train_model_button.configure(text='Training Complete!')
+        self.update_idletasks()
+        time.sleep(1)
+        self.train_model_button.configure(border_color='yellow', text='Testing Model...')
+        self.update_idletasks()
+        self.N_network.test_mode(test_images, test_labels)
+        
+        values = [learning_rate, self.hidden_layers_sizes, 784, 10, self.N_network.real_accuracy, self.N_network.mean_pred_time]
         self.NN_info_frame.update_input_frame(values)
-        self.train_model_button.configure(border_color='green', text='Training Complete!')
+        
+        self.train_model_button.configure(border_color='green', text='Test Done!')
+        self.predict_button.configure(text='Predict', state='enabled')
+        self.load_model_button.configure(state='enabled')
+        self.train_model_button.configure(state='enabled')
+        self.save_params_button.configure(state='enabled')
+        time.sleep(1)
+        self.train_model_button.configure(text='Model Ready', state='enabled')
     
     def load_model(self):
-        learning_rate = float(self.NN_info_frame.learning_rate_entry.get())
-        self.hidden_layers_sizes = [int(i) for i in self.NN_info_frame.hidden_layers_size_entry.get().split(sep=', ')]
+        self.load_model_button.configure(border_color='orange', border_width=5, text='Loading...', state='disabled')
+        self.update_idletasks()
+        input_path = cwd + "\\" + self.NN_info_frame.input_path_entry.get()
 
-        self.N_network = custom_NN.neural_network(self.hidden_layers_sizes, learning_rate)
-        self.N_network.retrieve_params(cwd + "params_file")
-        values = [self.N_network.learning_rate, self.hidden_layers_sizes, 784, 10, self.N_network.accuracy, 'None']
+        self.N_network = custom_NN.neural_network([], 0)
+        self.N_network.retrieve_params(input_path)
+        values = [self.N_network.learning_rate, self.N_network.layers_size, 784, 10, self.N_network.real_accuracy, self.N_network.mean_pred_time]
         self.NN_info_frame.update_input_frame(values)
+
+        self.load_model_button.configure(border_color='green', text='Model Loaded')
+        self.predict_button.configure(text='Predict', state='enabled')
+        self.train_model_button.configure(state='enabled')
+        self.train_model_button.configure(state='enabled')
+        self.save_params_button.configure(state='enabled')
 
     def predict(self):
         pred_image = self.NN_info_frame.input_path_entry.get()
@@ -141,14 +167,15 @@ class Main_menu(ctk.CTk):
         data = np.random.randint(0, 1e4)
         pred, pred_time = self.N_network.predict_mode(test_images[:, data], test_labels[data])
         pred_image = Image.fromarray(test_images[:, data].reshape(28, 28)*255)
-
         pred_image = ctk.CTkImage(light_image=pred_image, size=(300, 300))
+        
         self.input_image.configure(image=pred_image, text='')
-
-        values = [self.N_network.learning_rate, self.hidden_layers_sizes, 784, 10, round(self.N_network.accuracy, 2), pred_time]
-        self.NN_info_frame.update_input_frame(values)
-
         self.output_info_frame.update_output_frame(self.N_network.activations[-1], (pred, self.N_network.activations[-1][pred]))
+    
+    def save_params(self):
+        output_path = cwd + self.NN_info_frame.input_path_entry.get()
+        self.N_network.save_params(output_path)
+        self.save_params_button.configure(text='Parameters Saved!', border_color='green', border_width=5)
     
     def exit_app(self):
         time.sleep(0.3)
@@ -204,7 +231,7 @@ class NN_info_frame(ctk.CTkFrame):
         # Hid layers 
         self.input_path_label = ctk.CTkLabel(master, text='Input File Path: ', font=font)
         self.input_path_label.grid(row=7, column=0, padx=(20, 10), pady=(10, 10))
-        self.input_path_entry = ctk.CTkEntry(master, placeholder_text='Path to File', font=font)
+        self.input_path_entry = ctk.CTkEntry(master, placeholder_text='Don\'t include cwd', font=font)
         self.input_path_entry.grid(row=7, column=1, padx=(10, 20), pady=(10, 20), sticky="ew")
 
     def update_input_frame(self, values):
@@ -219,9 +246,9 @@ class NN_info_frame(ctk.CTkFrame):
         # Output size
         self.output_size_entry.configure(text=str(values[3]))
         # Accuracy
-        self.accuracy_entry.configure(text=str(values[4]))
+        self.accuracy_entry.configure(text=f'{values[4]} %')
         # Mean pred time
-        self.pred_time_entry.configure(text=str(values[5]))
+        self.pred_time_entry.configure(text=f'{values[5]} us')
 
 
 class NN_output_frame(ctk.CTkFrame):
@@ -251,13 +278,13 @@ class NN_output_frame(ctk.CTkFrame):
 
 def read_data(filename_images, filename_labels):
     cp1 = time.perf_counter()
-    with gzip.open(cwd + filename_images, 'rb') as f:
+    with gzip.open(f'{cwd}\\{filename_images}', 'rb') as f:
             images = f.read()
     cp2 = time.perf_counter()
     images_time = str((cp2-cp1)*1000)
 
     cp1 = time.perf_counter()
-    with gzip.open(cwd + filename_labels, 'rb') as f:
+    with gzip.open(f'{cwd}\\{filename_labels}', 'rb') as f:
             labels = f.read()
     cp2 = time.perf_counter()
     labels_time = str((cp2-cp1)*1000)
@@ -276,14 +303,14 @@ def load_data(filename_images_train, filename_labels_train, filename_images_test
     test_labels = np.frombuffer(test_labels, dtype=np.uint8, offset=8).reshape(-1)
     test_images = test_images.reshape(10000, 784).T / 255
 
-    print('[INFO] Time elapsed reading train images:\t{0} ms\n[INFO] Time elapsed reading train labels:\t{1} ms\n'.format(train_images_time, train_labels_time))
+    print('[DEBUG] Time elapsed reading train images:\t{0} ms\n[DEBUG] Time elapsed reading train labels:\t{1} ms\n'.format(train_images_time, train_labels_time))
 
     return (train_images, train_labels, test_images, test_labels)
 
 
 if __name__ == "__main__":
     global cwd, train_images, train_labels, test_images, test_labels, is_started
-    cwd = os.getcwd() + "\\"
+    cwd = os.getcwd()
     is_started = False
 
     ctk.set_appearance_mode("System")

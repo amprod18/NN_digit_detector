@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import time
 import pickle
+import os
 
 
 class neural_network():
@@ -12,6 +13,7 @@ class neural_network():
         self.layers_size = layers_size
         self.learning_rate = learning_rate
         self.accuracy = 0
+        self.real_accuracy = 0
         self.weights = []
         self.biases = []
         self.zs = []
@@ -114,16 +116,10 @@ class neural_network():
             bp_time = self.backward_prop(images[:, i], objectives[:, i])
             unn_time = self.update_NN()
             counter += (np.uint8(np.argmax(self.activations[-1], 0)[0]) == labels[i])
-            # print(np.uint8(np.argmax(self.activations[-1], 0)[0]), labels[i], counter)
             times[:, i] = np.array([fp_time, bp_time, unn_time])
             if i == 0:
                 continue
             accuracy = np.append(accuracy, 100*counter / i)
-            if i % 10000 == 0:
-                print("[INFO] iteration number: ", i)
-                print("[INFO] Accuracy: ", round(100*counter / i, 2), "%")
-        print("[INFO] iteration number: ", iters)
-        print("[INFO] Accuracy: ", round(100*counter / iters, 2), "%")
         accuracy = np.append(accuracy, 100*counter / iters)
         times = np.array([i.sum()/iters for i in times])
         times = np.append(times, times.sum())
@@ -153,7 +149,7 @@ class neural_network():
         ax.imshow(image, cmap='gray')
         plt.show()
     
-    def plot_training_data(self, accuracy, time_data, show=False):
+    def plot_training_data(self, accuracy, time_data):
         # Create figure and grid layout
         fig = plt.figure(num=0)
         gs = GridSpec(1, 2, width_ratios=[2, 1])  # Divide the figure into 1 row, 2 columns
@@ -175,17 +171,30 @@ class neural_network():
 
         # Adjust spacing between subplots
         fig.tight_layout()
-        if show:
-            plt.show()
+        plt.show()
     
-    def train_mode(self, images, labels):
-        print("[INFO] Starting training...")
+    def train_mode(self, images, labels, show=False):
         accuracy, mean_times = self.gradient_descend(images, labels)
         self.accuracy = accuracy[-1]
         table_headers = np.array([[""], ["Mean Time per Iteration (ms)"], ["Iterations per Second"]])
         self.time_names = np.array(["Forward Propagation", "Backward Propagation", "Update Neural Network", "Total Iteration", "Total Training"])
         self.time_data = np.column_stack((table_headers, np.array([self.time_names, mean_times, 1000/mean_times]))).T
-        self.plot_training_data(accuracy, self.time_data)
+        if show:
+            self.plot_training_data(accuracy, self.time_data)
+    
+    def test_mode(self, images, labels):
+        self.real_accuracy = 0
+        self.mean_pred_time = 0
+        for i in range(len(images[0])):
+            pred, fp_time = self.predict_mode(images[:, i], labels[i])
+            self.mean_pred_time += fp_time
+            self.real_accuracy += (np.uint8(pred[0]) == labels[i])
+
+        self.mean_pred_time /= len(images[0])
+        self.real_accuracy /= len(images[0])
+        self.mean_pred_time = round(1000*self.mean_pred_time, 2)
+        self.real_accuracy = round(100*self.real_accuracy, 2)
+        return (self.real_accuracy, self.mean_pred_time)
 
     def predict_mode(self, image, label, show=False):
         fp_time = self.forward_prop(image)
@@ -195,17 +204,27 @@ class neural_network():
         return (pred, fp_time)
     
     def save_params(self, output_file):
-        with open(f"{output_file}_biases.txt", "wb") as f:
+        os.makedirs(os.path.dirname(f"{output_file}\\params\\biases.txt"), exist_ok=True)
+        os.makedirs(os.path.dirname(f"{output_file}\\params\\weights.txt"), exist_ok=True)
+        os.makedirs(os.path.dirname(f"{output_file}\\params\\metadata.txt"), exist_ok=True)
+        with open(f"{output_file}\\params\\biases.txt", "wb") as f:
             pickle.dump(self.biases, f)
-        with open(f"{output_file}_weights.txt", "wb") as f:
+        with open(f"{output_file}\\params\\weights.txt", "wb") as f:
             pickle.dump(self.weights, f)
-        with open(f"{output_file}_metadata.txt", "wb") as f:
-            pickle.dump([self.accuracy, self.time_data], f)
+        with open(f"{output_file}\\params\\metadata.txt", "wb") as f:
+            pickle.dump([self.real_accuracy, self.mean_pred_time, self.learning_rate], f)
 
     def retrieve_params(self, params_file):
-        with open(f"{params_file}_biases.txt", "rb") as f:
+        with open(f"{params_file}\\params\\biases.txt", "rb") as f:
             self.biases = pickle.load(f)
-        with open(f"{params_file}_weights.txt", "rb") as f:
+            self.activations = self.biases.copy()
+            self.zs = self.biases.copy()
+        with open(f"{params_file}\\params\\weights.txt", "rb") as f:
             self.weights = pickle.load(f)
-        with open(f"{params_file}_metadata.txt", "wb") as f:
-            self.accuracy, self.timde_data = pickle.load(f)
+        with open(f"{params_file}\\params\\metadata.txt", "rb") as f:
+            self.real_accuracy, self.mean_pred_time, self.learning_rate = tuple(pickle.load(f))
+        
+        self.layers_size = [len(i[0]) for i in self.weights]
+
+
+
