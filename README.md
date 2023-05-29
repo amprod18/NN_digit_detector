@@ -1,4 +1,4 @@
-# Handwritten digits Identifier
+# Handwritten digits Identifier <img align="right" alt="coding" width="50" src="https://github.com/amprod18/NN_digit_detector/blob/main/images/neural_network_icon_lth.png">
 
 ## Understanding Neural Networks
 
@@ -85,6 +85,6 @@ Gradient descent is an optimization algorithm used to minimize the loss function
 As a reference, the sample network has four layers. Two for the input and output and two hidden layers. The input has 784 neurons and each of the hidden layers plus the output have 10 neurons. The input is more or less forced as the images that are to be analyzed are 28 by 28 pixels (784 in total) and same thing happens to the output layer as we need 10 neurons, one for each digit. On the other hand, the hidden layers are arbitrarily chosen and other geometries and sizes may yield better results. Here is how the neural network looks:
 
 <p align="center">
-  <img src="images\NN_digit_structure.png" alt="NN_digit_structure" height="500 px" length="500 px">
+  <img src="https://github.com/amprod18/NN_digit_detector/blob/main/images/NN_digit_structure.png" alt="NN_digit_structure" height="500 px" length="500 px">
 </p>
 
