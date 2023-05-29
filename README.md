@@ -1,4 +1,4 @@
-# Handwritten digits Identifier
+# Handwritten digits Identifier <img align="right" alt="coding" width="50" src="https://github.com/amprod18/NN_digit_detector/blob/main/images/neural_network_icon_lth.png">
 
 ## Understanding Neural Networks
 
